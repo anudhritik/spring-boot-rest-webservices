@@ -23,10 +23,12 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 public class UserJPAResource {
-	@Autowired
-	private UserDaoService userDaoService;
+
 	@Autowired
 	private UserRepository userRepo;
+
+	@Autowired
+	private PostRepository postRepo;
 
 	// retrieve all users
 	@GetMapping("/jpa/users")
@@ -57,7 +59,7 @@ public class UserJPAResource {
 
 	@PostMapping("/jpa/users")
 	public ResponseEntity<Object> createUser(@Valid @RequestBody User user) {
-		User savedUser = userDaoService.save(user);
+		User savedUser = userRepo.save(user);
 
 		URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(savedUser.getId())
 				.toUri();
@@ -67,10 +69,36 @@ public class UserJPAResource {
 
 	@DeleteMapping("/jpa/users/{id}")
 	public void deleteUserbyId(@PathVariable int id) {
-		User user = userDaoService.deleteById(id);
-		if (user == null)
-			throw new UserNotFoundException("id-" + id);
-
+		userRepo.deleteById(id);
 	}
 
+	@GetMapping("/jpa/users/{id}/posts")
+	public List<Post> retrieveAllUsers(@PathVariable int id) {
+		Optional<User> user = userRepo.findById(id);
+
+		if (!user.isPresent()) {
+			throw new UserNotFoundException("id-" + id);
+		}
+		return user.get().getPosts();
+	}
+
+	@PostMapping("/jpa/users/{id}/posts")
+	public ResponseEntity<Object> createPost(@PathVariable int id, @RequestBody Post post) {
+		Optional<User> userOptional = userRepo.findById(id);
+
+		if (!userOptional.isPresent()) {
+			throw new UserNotFoundException("id-" + id);
+		}
+
+		User user = userOptional.get();
+
+		post.setUser(user);
+
+		postRepo.save(post);
+
+		URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(post.getId())
+				.toUri();
+
+		return ResponseEntity.created(location).build();
+	}
 }
